@@ -37,10 +37,9 @@ Through this project, I have gained a practical understanding of:
 I am dedicated to expanding my knowledge by exploring more complex data structures, advanced functions, and eventually delving into more sophisticated data analysis techniques or web development frameworks. This is just the beginning of my journey towards impactful IT solutions!
 
 ## 🔗 Connect with Me
--   **LinkedIn:** [Your LinkedIn Profile URL, e.g., https://www.linkedin.com/in/邵锦言-邵-bb5991347/]
+-   **LinkedIn:** https://www.linkedin.com/in/jinyan-shao-bb5991347/
 -   **Email:** vivian.shao03@gmail.com
 
 ---
 ### ✨ **Quote that Inspires Me:**
-"We are all in the gutter, but some of us are looking at the stars." – Oscar Wilde (王尔德)
-*(This quote from your National Scholarship defense PPT reflects my perseverance and optimism in my learning journey.)*
+"We are all in the gutter, but some of us are looking at the stars." – Oscar Wilde 

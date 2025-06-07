@@ -1,4 +1,4 @@
-# My First Python Project: Basic Data Operations & Learning Journey 🚀
+# Python Foundational Project: Data Operations & Workflow Concepts
 
 ##  👋 Welcome!
 This repository marks my foundational step into the world of Python programming and serves as a testament to my commitment to continuous learning and growth in the IT field. As a beginner, this project is designed to showcase fundamental Python syntax, variable usage, basic data operations, and control flow.

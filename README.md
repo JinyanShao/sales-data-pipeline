@@ -17,7 +17,7 @@ This repository marks my foundational step into the world of Python programming 
 ## 🚀 How to Run (Local Setup)
 1.  **Clone this repository** to your local machine:
     ```bash
-    git clone [https://github.com/LinneaShao/python-data-analysis-project .git](https://github.com/LinneaShao/python-data-analysis-project .git)
+    git clone https://github.com/LinneaShao/python-data-analysis-project.git
     ```
 2.  **Navigate into the project directory**:
     ```bash

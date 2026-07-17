@@ -15,3 +15,7 @@ class SchemaValidationError(PipelineError):
 
 class ExportError(PipelineError):
     """Raised when pipeline artifacts cannot be written."""
+
+
+class ReconciliationError(PipelineError):
+    """Raised when transformed orders and summary totals do not agree."""

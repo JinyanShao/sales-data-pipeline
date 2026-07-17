@@ -27,7 +27,9 @@ def test_clean_orders_quarantines_multiple_quality_issues(valid_orders):
 
 
 def test_clean_orders_isolates_duplicate_rows_and_order_ids(valid_orders):
-    data = pd.concat([valid_orders, valid_orders.iloc[[0]], valid_orders.iloc[[0]]], ignore_index=True)
+    data = pd.concat(
+        [valid_orders, valid_orders.iloc[[0]], valid_orders.iloc[[0]]], ignore_index=True
+    )
     validation = validate_orders(data)
     result = clean_orders(data, validation)
     assert len(result.accepted) == 2

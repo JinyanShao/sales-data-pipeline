@@ -28,6 +28,41 @@ def test_validate_orders_reports_field_and_business_rule_errors(valid_orders):
     }
 
 
+def test_validate_orders_rejects_duplicate_order_id(valid_orders):
+    duplicate = pd.concat([valid_orders, valid_orders.iloc[[0]]], ignore_index=True)
+    result = validate_orders(duplicate)
+    assert result.issue_counts["duplicate_order_id"] == 1
+    assert result.invalid_records == 1
+
+
+def test_validate_orders_rejects_invalid_date(valid_orders):
+    invalid = valid_orders.iloc[[0]].copy()
+    invalid.loc[:, "order_date"] = "2026-99-99"
+    assert validate_orders(invalid).issue_counts["invalid_order_date"] == 1
+
+
+def test_validate_orders_rejects_missing_customer(valid_orders):
+    invalid = valid_orders.iloc[[0]].copy()
+    invalid.loc[:, "customer_id"] = None
+    assert validate_orders(invalid).issue_counts["missing_customer_id"] == 1
+
+
+@pytest.mark.parametrize("quantity", [0, -1])
+def test_validate_orders_rejects_non_positive_quantity(valid_orders, quantity):
+    invalid = valid_orders.iloc[[0]].copy()
+    invalid.loc[:, "quantity"] = quantity
+    assert validate_orders(invalid).issue_counts["non_positive_quantity"] == 1
+
+
+def test_validate_orders_accepts_zero_price_and_rejects_negative_price(valid_orders):
+    boundary = valid_orders.copy()
+    boundary.loc[0, "unit_price"] = 0
+    boundary.loc[1, "unit_price"] = -0.01
+    result = validate_orders(boundary)
+    assert result.issue_counts["negative_unit_price"] == 1
+    assert result.valid_records == 1
+
+
 def test_validate_schema_lists_missing_columns(valid_orders):
     with pytest.raises(SchemaValidationError, match="status"):
         validate_schema(valid_orders.drop(columns=["status"]))

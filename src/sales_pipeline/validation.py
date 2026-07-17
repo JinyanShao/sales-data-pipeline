@@ -39,7 +39,15 @@ def validate_orders(
     """Validate field values and return quality results without changing input data."""
     validate_schema(frame)
     data = frame.reset_index(drop=True).copy()
-    text_columns = ["order_id", "customer_id", "product_id", "product_name", "category", "country", "status"]
+    text_columns = [
+        "order_id",
+        "customer_id",
+        "product_id",
+        "product_name",
+        "category",
+        "country",
+        "status",
+    ]
     for column in text_columns:
         data[column] = data[column].astype("string").str.strip().replace("", pd.NA)
     data["status"] = data["status"].str.lower()

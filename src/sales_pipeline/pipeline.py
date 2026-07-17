@@ -7,9 +7,9 @@ from typing import Any
 from sales_pipeline.cleaning import clean_orders
 from sales_pipeline.config import PipelineConfig
 from sales_pipeline.ingestion import read_orders
-from sales_pipeline.reporting import build_quality_report, write_outputs
+from sales_pipeline.reporting import build_pipeline_summary, write_outputs
 from sales_pipeline.transformation import transform_orders
-from sales_pipeline.validation import validate_schema
+from sales_pipeline.validation import validate_orders
 
 
 @dataclass(frozen=True)
@@ -24,9 +24,9 @@ def run_pipeline(config: PipelineConfig | None = None, base_dir: Path | None = N
     """Run ingestion, validation, cleaning, transformation, and reporting."""
     settings = (config or PipelineConfig()).resolved(base_dir)
     raw_orders = read_orders(settings.input_path)
-    validate_schema(raw_orders)
-    cleaning = clean_orders(raw_orders, settings.supported_statuses)
+    validation = validate_orders(raw_orders, settings.supported_statuses)
+    cleaning = clean_orders(raw_orders, validation)
     summaries = transform_orders(cleaning.accepted, settings.revenue_statuses)
-    report = build_quality_report(settings.input_path, len(raw_orders), cleaning, summaries)
-    outputs = write_outputs(summaries, cleaning, report, settings.processed_dir, settings.reports_dir)
+    report = build_pipeline_summary(settings.input_path, validation, summaries)
+    outputs = write_outputs(summaries, cleaning, report, settings.output_dir)
     return PipelineResult(report=report, outputs=outputs)

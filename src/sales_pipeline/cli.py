@@ -5,8 +5,13 @@ import logging
 from pathlib import Path
 
 from sales_pipeline.config import PipelineConfig
-from sales_pipeline.exceptions import ExportError, InputFileError, SchemaValidationError
-from sales_pipeline.pipeline import run_pipeline
+from sales_pipeline.exceptions import (
+    ExportError,
+    InputFileError,
+    ReconciliationError,
+    SchemaValidationError,
+)
+from sales_pipeline.pipeline import create_run_id, run_pipeline
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,24 +38,29 @@ def main(argv: list[str] | None = None) -> int:
         format="%(levelname)s %(message)s",
         force=True,
     )
+    run_id = create_run_id()
     try:
         result = run_pipeline(
-            PipelineConfig(input_path=args.input_file, output_dir=args.output_dir)
+            PipelineConfig(input_path=args.input_file, output_dir=args.output_dir, run_id=run_id)
         )
     except ExportError as exc:
-        LOGGER.error("Pipeline output failed: %s", exc)
+        LOGGER.error("[run_id=%s] Pipeline output failed: %s", run_id, exc)
         return 3
     except (InputFileError, SchemaValidationError) as exc:
-        LOGGER.error("Pipeline input failed: %s", exc)
+        LOGGER.error("[run_id=%s] Pipeline input failed: %s", run_id, exc)
         return 2
+    except ReconciliationError as exc:
+        LOGGER.error("[run_id=%s] Pipeline reconciliation failed: %s", run_id, exc)
+        return 1
 
     if args.strict and result.report["rejected_records"]:
         LOGGER.error(
-            "Pipeline failed data quality checks with %s rejected records",
+            "[run_id=%s] Pipeline failed data quality checks with %s rejected records",
+            run_id,
             result.report["rejected_records"],
         )
         return 1
-    LOGGER.info("Pipeline completed successfully")
+    LOGGER.info("[run_id=%s] Pipeline completed successfully", run_id)
     return 0
 
 

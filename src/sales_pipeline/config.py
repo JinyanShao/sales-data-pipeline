@@ -26,6 +26,7 @@ class PipelineConfig:
 
     input_path: Path = Path("data/raw/sales_orders.csv")
     output_dir: Path = Path("reports")
+    run_id: str | None = None
     supported_statuses: frozenset[str] = field(default_factory=lambda: SUPPORTED_STATUSES)
     revenue_statuses: frozenset[str] = field(default_factory=lambda: REVENUE_STATUSES)
 
@@ -39,6 +40,7 @@ class PipelineConfig:
         return PipelineConfig(
             input_path=anchor(self.input_path),
             output_dir=anchor(self.output_dir),
+            run_id=self.run_id,
             supported_statuses=self.supported_statuses,
             revenue_statuses=self.revenue_statuses,
         )

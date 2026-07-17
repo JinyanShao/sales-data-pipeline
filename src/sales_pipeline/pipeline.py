@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -29,7 +29,7 @@ class PipelineResult:
 
 def create_run_id(now: datetime | None = None) -> str:
     """Create a sortable identifier for one pipeline execution."""
-    timestamp = now or datetime.now(UTC)
+    timestamp = now or datetime.now(timezone.utc)
     return f"{timestamp.strftime('%Y%m%dT%H%M%SZ')}-{uuid4().hex[:6]}"
 
 
@@ -39,7 +39,7 @@ def run_pipeline(
     """Run ingestion, validation, cleaning, transformation, and reporting."""
     settings = (config or PipelineConfig()).resolved(base_dir)
     run_id = settings.run_id or create_run_id()
-    started_at = datetime.now(UTC)
+    started_at = datetime.now(timezone.utc)
     started_clock = perf_counter()
 
     LOGGER.info("[run_id=%s] Reading sales orders from %s", run_id, settings.input_path)
@@ -57,7 +57,7 @@ def run_pipeline(
     reconcile_summaries(summaries)
     LOGGER.info("[run_id=%s] Reconciled order and summary totals", run_id)
 
-    completed_at = datetime.now(UTC)
+    completed_at = datetime.now(timezone.utc)
     report = build_pipeline_summary(
         settings.input_path,
         validation,

@@ -1,45 +1,123 @@
-# Python Foundational Project: Data Operations & Workflow Concepts
+# Sales Data Processing Pipeline
 
-##  👋 Welcome!
-This repository marks my foundational step into the world of Python programming and serves as a testament to my commitment to continuous learning and growth in the IT field. As a beginner, this project is designed to showcase fundamental Python syntax, variable usage, basic data operations, and control flow.
+A tested Python pipeline for validating, cleaning, transforming, and reporting sales data.
 
-## ✨ Features
--   **Interactive Greeting:** A personalized welcome message demonstrating string manipulation and f-strings.
--   **Simple Counter:** A basic loop to illustrate control flow and iteration.
--   **Arithmetic Operation:** An example of fundamental mathematical calculations in Python.
--   **Personal Goal Statement:** A declaration of my ambition to become a proficient Software Engineer or Data Scientist.
+This repository models an internal data-processing task for a small retail or e-commerce business. It turns imperfect order exports into repeatable, auditable datasets and business summaries. The focus is automation, reliable data processing, business rules, and backend-adjacent engineering—not machine learning.
 
-## 🛠️ Technologies Used
--   Python 3.x (Primary programming language)
--   Visual Studio Code (IDE for development)
--   Git & GitHub (Version control and collaboration)
+## What the pipeline does
 
-## 🚀 How to Run (Local Setup)
-1.  **Clone this repository** to your local machine:
-    ```bash
-    git clone https://github.com/LinneaShao/python-data-analysis-project.git
-    ```
-2.  **Navigate into the project directory**:
-    ```bash
-    cd python-data-analysis-project 
-    ```
-3.  **Run the Python script**:
-    ```bash
-    python main.py
-    ```
+The pipeline runs six explicit stages:
 
-## 📚 Learning Outcomes & Future Plans
-Through this project, I have gained a practical understanding of:
--   Setting up a Python development environment.
--   Core Python syntax, data types, and basic programming constructs.
--   The fundamental workflow of Git for version control and GitHub for project hosting.
+1. **Ingest** a CSV export while preserving business identifiers.
+2. **Validate** the required schema before processing any records.
+3. **Clean** whitespace and inconsistent status casing, and coerce dates and numeric fields.
+4. **Quarantine** invalid records with one or more traceable rejection reasons.
+5. **Transform** accepted orders and recognize revenue for completed and shipped orders.
+6. **Report** customer, product, and monthly sales summaries plus data-quality metrics.
 
-I am dedicated to expanding my knowledge by exploring more complex data structures, advanced functions, and eventually delving into more sophisticated data analysis techniques or web development frameworks. This is just the beginning of my journey towards impactful IT solutions!
+Structural failures such as a missing input file or required column stop the run. Row-level issues do not silently disappear: affected records are written to `rejected_orders.csv` with a `rejection_reasons` field.
 
-## 🔗 Connect with Me
--   **LinkedIn:** https://www.linkedin.com/in/jinyan-shao-bb5991347/
--   **Email:** vivian.shao03@gmail.com
+## Input contract
 
----
-### ✨ **Quote that Inspires Me:**
-"We are all in the gutter, but some of us are looking at the stars." – Oscar Wilde 
+| Field | Meaning | Rule |
+| --- | --- | --- |
+| `order_id` | Unique order identifier | Required and unique |
+| `order_date` | Order date | Must be parseable |
+| `customer_id` | Customer identifier | Required |
+| `product_id` | Product identifier | Required |
+| `product_name` | Display name | Required; whitespace is trimmed |
+| `category` | Product category | Required by the schema |
+| `quantity` | Units ordered | Must be greater than zero |
+| `unit_price` | Price per unit | Must be zero or greater |
+| `country` | Customer/order country | Required by the schema |
+| `status` | Order lifecycle state | `pending`, `completed`, `shipped`, or `cancelled` |
+
+The sample input intentionally contains duplicate orders, a duplicate row, a missing customer ID, an invalid date, zero and negative quantities, a negative price, inconsistent status casing, padded product names, and an unsupported status.
+
+## Business rules
+
+- Status values are trimmed and normalized to lowercase.
+- Product names and other text fields are trimmed.
+- The first valid occurrence of an `order_id` is retained; later occurrences are quarantined.
+- A rejected row may carry several semicolon-separated reasons.
+- `order_revenue = quantity × unit_price` only when status is `completed` or `shipped`.
+- Pending and cancelled orders remain available for operational analysis but contribute zero recognized revenue.
+
+## Project structure
+
+```text
+sales-data-pipeline/
+├── .github/workflows/ci.yml
+├── data/
+│   ├── raw/sales_orders.csv
+│   └── processed/.gitkeep
+├── reports/.gitkeep
+├── src/sales_pipeline/
+│   ├── __init__.py
+│   ├── cli.py
+│   ├── config.py
+│   ├── exceptions.py
+│   ├── ingestion.py
+│   ├── validation.py
+│   ├── cleaning.py
+│   ├── transformation.py
+│   ├── reporting.py
+│   └── pipeline.py
+├── tests/
+├── .gitignore
+├── LICENSE
+├── README.md
+└── pyproject.toml
+```
+
+## Run locally
+
+Python 3.10 or newer is required.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+sales-pipeline
+```
+
+Custom paths can be supplied without changing source code:
+
+```bash
+sales-pipeline \
+  --input data/raw/sales_orders.csv \
+  --processed-dir data/processed \
+  --reports-dir reports
+```
+
+The command prints the run summary as JSON and returns a non-zero exit code for expected ingestion or schema failures.
+
+## Outputs
+
+| Artifact | Purpose |
+| --- | --- |
+| `data/processed/cleaned_orders.csv` | Normalized accepted orders with recognized revenue |
+| `data/processed/rejected_orders.csv` | Quarantined records and rejection reasons |
+| `reports/sales_by_customer.csv` | Orders, units, and revenue by customer |
+| `reports/sales_by_product.csv` | Orders, units, and revenue by product |
+| `reports/sales_by_month.csv` | Orders, units, and revenue by calendar month |
+| `reports/data_quality_report.json` | Input, acceptance, rejection, issue, and business metrics |
+
+Generated outputs are ignored by Git so repeated local and CI runs do not create repository noise.
+
+## Tests and CI
+
+```bash
+pytest --cov=sales_pipeline --cov-report=term-missing
+```
+
+Tests cover ingestion failures, schema validation, multi-reason rejection, duplicate handling, business transformations, artifact generation, and an end-to-end run. GitHub Actions tests Python 3.10–3.12 and executes the pipeline against the sample dataset.
+
+## Repository metadata
+
+- **Repository name:** `sales-data-pipeline`
+- **GitHub description:** A tested Python pipeline for validating, cleaning, transforming, and reporting sales data.
+
+## License
+
+MIT

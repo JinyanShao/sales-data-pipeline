@@ -25,8 +25,7 @@ class PipelineConfig:
     """Filesystem and business-rule settings for one pipeline run."""
 
     input_path: Path = Path("data/raw/sales_orders.csv")
-    processed_dir: Path = Path("data/processed")
-    reports_dir: Path = Path("reports")
+    output_dir: Path = Path("reports")
     supported_statuses: frozenset[str] = field(default_factory=lambda: SUPPORTED_STATUSES)
     revenue_statuses: frozenset[str] = field(default_factory=lambda: REVENUE_STATUSES)
 
@@ -39,8 +38,7 @@ class PipelineConfig:
 
         return PipelineConfig(
             input_path=anchor(self.input_path),
-            processed_dir=anchor(self.processed_dir),
-            reports_dir=anchor(self.reports_dir),
+            output_dir=anchor(self.output_dir),
             supported_statuses=self.supported_statuses,
             revenue_statuses=self.revenue_statuses,
         )

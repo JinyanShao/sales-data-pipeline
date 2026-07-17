@@ -25,9 +25,9 @@ def transform_orders(
     """Calculate gross and recognized revenue and build business summaries."""
     orders = frame.copy()
     orders["gross_revenue"] = (orders["quantity"] * orders["unit_price"]).round(2)
-    orders["sales_revenue"] = orders["gross_revenue"].where(
-        orders["status"].isin(revenue_statuses), 0.0
-    ).round(2)
+    orders["sales_revenue"] = (
+        orders["gross_revenue"].where(orders["status"].isin(revenue_statuses), 0.0).round(2)
+    )
     orders["order_month"] = orders["order_date"].dt.to_period("M").astype("string")
 
     customer = _summarize(orders, ["customer_id"], ["revenue", "customer_id"])

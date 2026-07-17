@@ -44,6 +44,19 @@ The sample input intentionally contains duplicate orders, a duplicate row, a mis
 - `sales_revenue` equals gross revenue only when status is `completed` or `shipped`.
 - Pending and cancelled orders remain available for operational analysis but contribute zero recognized revenue.
 
+| Data quality issue | Processing rule |
+| --- | --- |
+| Duplicate `order_id` | Keep the first occurrence when otherwise valid; send later occurrences to rejected records |
+| Completely duplicate row | Keep the first occurrence; send later copies to rejected records and report the duplicate count |
+| Missing `customer_id` | Send the record to rejected records |
+| `quantity <= 0` | Send the record to rejected records |
+| Non-integer quantity | Send the record to rejected records |
+| `unit_price < 0` | Send the record to rejected records; zero is accepted |
+| Invalid order date | Send the record to rejected records |
+| Product-name whitespace | Trim leading and trailing whitespace automatically |
+| Inconsistent status casing | Normalize the status to lowercase |
+| Unknown status | Send the record to rejected records; strict mode also returns a data-quality failure |
+
 ## Module responsibilities
 
 - `ingestion.py` handles file existence, empty input, CSV parsing, encoding errors, and DataFrame loading.
@@ -100,7 +113,16 @@ sales-pipeline data/raw/sales_orders.csv \
   --log-level INFO
 ```
 
-Add `--strict` to return exit status `2` when any records are rejected. Audit files are still written before strict-mode status is evaluated. File and schema failures return exit status `1`.
+Add `--strict` to return a data-quality failure when any records are rejected. Audit files are still written before strict-mode status is evaluated.
+
+| Exit code | Meaning |
+| --- | --- |
+| `0` | Pipeline completed successfully |
+| `1` | Strict-mode data-quality failure |
+| `2` | Input, schema, or command configuration error |
+| `3` | Output export failure |
+
+The pipeline uses Python logging for operational output. Logs identify the input file, raw record count, duplicate count, rejected-record count, each output path, and final pipeline status. The complete metric set remains available in `pipeline_summary.json`.
 
 ## Outputs
 
@@ -124,7 +146,15 @@ Generated outputs are ignored by Git so repeated local and CI runs do not create
 pytest --cov=sales_pipeline --cov-report=term-missing
 ```
 
-Tests cover ingestion failures, schema validation, multi-reason rejection, duplicate handling, business transformations, artifact generation, and an end-to-end run. GitHub Actions tests Python 3.10–3.12 and executes the pipeline against the sample dataset.
+Tests use `tmp_path` and fixtures, so they do not depend on the repository's real output directories. They cover missing and empty files, required columns, duplicate orders, invalid dates, missing customers, quantity and price boundaries, status normalization, revenue calculations, customer and product summaries, rejected records, the complete pipeline, and CLI exit codes.
+
+GitHub Actions runs on Ubuntu with Python 3.10 and 3.12:
+
+```bash
+ruff check src tests
+ruff format --check src tests
+pytest --cov=sales_pipeline --cov-report=term-missing --cov-fail-under=85
+```
 
 ## Repository metadata
 

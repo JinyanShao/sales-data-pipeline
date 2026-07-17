@@ -16,6 +16,18 @@ def test_run_pipeline_end_to_end(tmp_path, valid_orders):
     assert json.loads(result.outputs["pipeline_summary"].read_text())["unique_customers"] == 2
 
 
+def test_run_pipeline_logs_processing_counts_and_outputs(tmp_path, valid_orders, caplog):
+    source = tmp_path / "orders.csv"
+    valid_orders.to_csv(source, index=False)
+    with caplog.at_level("INFO", logger="sales_pipeline.pipeline"):
+        run_pipeline(PipelineConfig(input_path=source, output_dir=tmp_path / "reports"))
+    assert "Loaded 2 raw records" in caplog.text
+    assert "Detected 0 duplicate rows" in caplog.text
+    assert "Validation rejected 0 records" in caplog.text
+    assert "Wrote pipeline_summary" in caplog.text
+    assert "processing completed successfully" in caplog.text
+
+
 def test_run_pipeline_exports_reports_when_every_record_is_rejected(tmp_path, valid_orders):
     source = tmp_path / "orders.csv"
     invalid = valid_orders.iloc[[0]].copy()

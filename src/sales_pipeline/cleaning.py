@@ -18,7 +18,15 @@ class CleaningResult:
 def clean_orders(frame: pd.DataFrame, validation: ValidationResult) -> CleaningResult:
     """Normalize values and split validated data into accepted and rejected records."""
     data = frame.reset_index(drop=True).copy()
-    text_columns = ["order_id", "customer_id", "product_id", "product_name", "category", "country", "status"]
+    text_columns = [
+        "order_id",
+        "customer_id",
+        "product_id",
+        "product_name",
+        "category",
+        "country",
+        "status",
+    ]
     for column in text_columns:
         data[column] = data[column].astype("string").str.strip().replace("", pd.NA)
     data["status"] = data["status"].str.lower()
@@ -28,9 +36,13 @@ def clean_orders(frame: pd.DataFrame, validation: ValidationResult) -> CleaningR
 
     rejected_mask = pd.Series([bool(errors) for errors in validation.row_errors])
     rejected = data.loc[rejected_mask].copy()
-    rejected["rejection_reasons"] = [";".join(validation.row_errors[position]) for position in rejected.index]
+    rejected["rejection_reasons"] = [
+        ";".join(validation.row_errors[position]) for position in rejected.index
+    ]
     accepted = data.loc[~rejected_mask].copy()
     accepted["quantity"] = accepted["quantity"].astype("int64")
     accepted["unit_price"] = accepted["unit_price"].astype("float64")
     accepted["order_date"] = accepted["order_date"].dt.normalize()
-    return CleaningResult(accepted=accepted.reset_index(drop=True), rejected=rejected.reset_index(drop=True))
+    return CleaningResult(
+        accepted=accepted.reset_index(drop=True), rejected=rejected.reset_index(drop=True)
+    )

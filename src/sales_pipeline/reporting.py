@@ -7,6 +7,7 @@ from typing import Any
 import pandas as pd
 
 from sales_pipeline.cleaning import CleaningResult
+from sales_pipeline.exceptions import ExportError
 from sales_pipeline.transformation import SalesSummaries
 from sales_pipeline.validation import ValidationResult
 
@@ -27,14 +28,22 @@ def build_pipeline_summary(
         "rejected_records": validation.invalid_records,
         "gross_revenue": round(float(orders["gross_revenue"].sum()), 2),
         "total_sales_revenue": total_revenue,
-        "average_order_value": round(total_revenue / len(sales_orders), 2) if len(sales_orders) else 0.0,
+        "average_order_value": round(total_revenue / len(sales_orders), 2)
+        if len(sales_orders)
+        else 0.0,
         "unique_customers": int(orders["customer_id"].nunique()),
-        "best_selling_product": _leading_value(summaries.by_product, "units_ordered", "product_name"),
+        "best_selling_product": _leading_value(
+            summaries.by_product, "units_ordered", "product_name"
+        ),
         "highest_revenue_product": _leading_value(summaries.by_product, "revenue", "product_name"),
         "highest_revenue_customer": _leading_value(summaries.by_customer, "revenue", "customer_id"),
         "monthly_revenue": {
             str(month): round(float(revenue), 2)
-            for month, revenue in zip(summaries.by_month["order_month"], summaries.by_month["revenue"])
+            for month, revenue in zip(
+                summaries.by_month["order_month"],
+                summaries.by_month["revenue"],
+                strict=True,
+            )
         },
         "order_status_distribution": {
             str(status): int(count) for status, count in orders["status"].value_counts().items()
@@ -57,7 +66,6 @@ def write_outputs(
     output_dir: Path,
 ) -> dict[str, Path]:
     """Write all pipeline artifacts to one output directory."""
-    output_dir.mkdir(parents=True, exist_ok=True)
     outputs = {
         "cleaned_orders": output_dir / "cleaned_orders.csv",
         "rejected_orders": output_dir / "rejected_orders.csv",
@@ -67,11 +75,17 @@ def write_outputs(
         "monthly_summary": output_dir / "monthly_summary.csv",
         "pipeline_summary": output_dir / "pipeline_summary.json",
     }
-    summaries.orders.to_csv(outputs["cleaned_orders"], index=False, date_format="%Y-%m-%d")
-    cleaning.rejected.to_csv(outputs["rejected_orders"], index=False, date_format="%Y-%m-%d")
-    summaries.by_customer.to_csv(outputs["customer_summary"], index=False)
-    summaries.by_product.to_csv(outputs["product_summary"], index=False)
-    summaries.by_category.to_csv(outputs["category_summary"], index=False)
-    summaries.by_month.to_csv(outputs["monthly_summary"], index=False)
-    outputs["pipeline_summary"].write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        summaries.orders.to_csv(outputs["cleaned_orders"], index=False, date_format="%Y-%m-%d")
+        cleaning.rejected.to_csv(outputs["rejected_orders"], index=False, date_format="%Y-%m-%d")
+        summaries.by_customer.to_csv(outputs["customer_summary"], index=False)
+        summaries.by_product.to_csv(outputs["product_summary"], index=False)
+        summaries.by_category.to_csv(outputs["category_summary"], index=False)
+        summaries.by_month.to_csv(outputs["monthly_summary"], index=False)
+        outputs["pipeline_summary"].write_text(
+            json.dumps(report, indent=2) + "\n", encoding="utf-8"
+        )
+    except OSError as exc:
+        raise ExportError(f"Could not write pipeline outputs to {output_dir}: {exc}") from exc
     return outputs

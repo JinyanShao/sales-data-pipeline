@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
   pull_request:
 
@@ -24,4 +25,4 @@ jobs:
       - run: ruff check src tests
       - run: ruff format --check src tests
       - run: pytest --cov=sales_pipeline --cov-report=term-missing --cov-fail-under=85
-      - run: sales-pipeline data/raw/sales_orders.csv --output-dir reports
+      - run: sales-pipeline data/raw/sales_orders.csv --output-dir "${{ runner.temp }}/sales-reports"

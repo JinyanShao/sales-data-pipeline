@@ -1,6 +1,7 @@
 import pytest
 
 from sales_pipeline.cli import main
+from sales_pipeline.exceptions import ReconciliationError
 
 
 def test_cli_returns_zero_and_logs_success(tmp_path, valid_orders, capsys):
@@ -43,3 +44,12 @@ def test_cli_invalid_log_level_uses_configuration_exit_code():
     with pytest.raises(SystemExit) as error:
         main(["orders.csv", "--log-level", "TRACE"])
     assert error.value.code == 2
+
+
+def test_cli_returns_one_for_reconciliation_failure(monkeypatch, capsys):
+    def fail_reconciliation(*args, **kwargs):
+        raise ReconciliationError("summary mismatch")
+
+    monkeypatch.setattr("sales_pipeline.cli.run_pipeline", fail_reconciliation)
+    assert main(["orders.csv"]) == 1
+    assert "Pipeline reconciliation failed" in capsys.readouterr().err

@@ -5,9 +5,13 @@ class PipelineError(Exception):
     """Base class for expected pipeline failures."""
 
 
-class IngestionError(PipelineError):
+class InputFileError(PipelineError):
     """Raised when input data cannot be loaded."""
 
 
 class SchemaValidationError(PipelineError):
     """Raised when input columns do not match the required contract."""
+
+
+class ExportError(PipelineError):
+    """Raised when pipeline artifacts cannot be written."""

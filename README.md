@@ -12,8 +12,8 @@ The pipeline runs six explicit stages:
 2. **Validate** the required schema before processing any records.
 3. **Clean** whitespace and inconsistent status casing, and coerce dates and numeric fields.
 4. **Quarantine** invalid records with one or more traceable rejection reasons.
-5. **Transform** accepted orders and recognize revenue for completed and shipped orders.
-6. **Report** customer, product, and monthly sales summaries plus data-quality metrics.
+5. **Transform** accepted orders and calculate gross and recognized revenue.
+6. **Report** customer, product, category, and monthly summaries plus data-quality metrics.
 
 Structural failures such as a missing input file or required column stop the run. Row-level issues do not silently disappear: affected records are written to `rejected_orders.csv` with a `rejection_reasons` field.
 
@@ -38,10 +38,21 @@ The sample input intentionally contains duplicate orders, a duplicate row, a mis
 
 - Status values are trimmed and normalized to lowercase.
 - Product names and other text fields are trimmed.
-- The first valid occurrence of an `order_id` is retained; later occurrences are quarantined.
+- The first occurrence of an `order_id` is retained when it passes all other rules; later occurrences are quarantined.
 - A rejected row may carry several semicolon-separated reasons.
-- `order_revenue = quantity × unit_price` only when status is `completed` or `shipped`.
+- `gross_revenue = quantity × unit_price` for every valid order.
+- `sales_revenue` equals gross revenue only when status is `completed` or `shipped`.
 - Pending and cancelled orders remain available for operational analysis but contribute zero recognized revenue.
+
+## Module responsibilities
+
+- `ingestion.py` handles file existence, empty input, CSV parsing, encoding errors, and DataFrame loading.
+- `validation.py` checks the schema, field types, identifiers, dates, quantities, prices, and statuses. It returns a `ValidationResult` containing record counts, issue counts, and row-level errors.
+- `cleaning.py` trims strings, normalizes statuses, converts dates and numbers, and separates accepted records from rejected records without silently discarding failures.
+- `transformation.py` calculates revenue and builds customer, product, category, and monthly summaries.
+- `reporting.py` writes the processed datasets, summaries, and pipeline metrics.
+- `pipeline.py` runs ingestion, validation, cleaning, transformation, and export in sequence.
+- `cli.py` exposes the pipeline as a repeatable command-line job.
 
 ## Project structure
 
@@ -78,30 +89,32 @@ Python 3.10 or newer is required.
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
-sales-pipeline
+sales-pipeline data/raw/sales_orders.csv --output-dir reports
 ```
 
 Custom paths can be supplied without changing source code:
 
 ```bash
-sales-pipeline \
-  --input data/raw/sales_orders.csv \
-  --processed-dir data/processed \
-  --reports-dir reports
+sales-pipeline data/raw/sales_orders.csv \
+  --output-dir reports \
+  --log-level INFO
 ```
 
-The command prints the run summary as JSON and returns a non-zero exit code for expected ingestion or schema failures.
+Add `--strict` to return exit status `2` when any records are rejected. Audit files are still written before strict-mode status is evaluated. File and schema failures return exit status `1`.
 
 ## Outputs
 
 | Artifact | Purpose |
 | --- | --- |
-| `data/processed/cleaned_orders.csv` | Normalized accepted orders with recognized revenue |
-| `data/processed/rejected_orders.csv` | Quarantined records and rejection reasons |
-| `reports/sales_by_customer.csv` | Orders, units, and revenue by customer |
-| `reports/sales_by_product.csv` | Orders, units, and revenue by product |
-| `reports/sales_by_month.csv` | Orders, units, and revenue by calendar month |
-| `reports/data_quality_report.json` | Input, acceptance, rejection, issue, and business metrics |
+| `cleaned_orders.csv` | Normalized accepted orders with gross and recognized revenue |
+| `rejected_orders.csv` | Quarantined records and rejection reasons |
+| `customer_summary.csv` | Orders, units, gross revenue, and recognized revenue by customer |
+| `product_summary.csv` | Orders, units, gross revenue, and recognized revenue by product |
+| `category_summary.csv` | Orders, units, gross revenue, and recognized revenue by category |
+| `monthly_summary.csv` | Orders, units, gross revenue, and recognized revenue by calendar month |
+| `pipeline_summary.json` | Data-quality counts and business metrics for the run |
+
+All artifacts are written beneath `--output-dir`. The JSON summary includes total, valid, and rejected order counts; gross and recognized revenue; average order value; unique customers; best-selling and highest-revenue products; highest-revenue customer; monthly revenue; order-status distribution; and validation issue counts.
 
 Generated outputs are ignored by Git so repeated local and CI runs do not create repository noise.
 

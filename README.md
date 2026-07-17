@@ -2,99 +2,100 @@
 
 A tested Python pipeline for validating, cleaning, transforming, and reporting sales data.
 
-This repository models an internal data-processing task for a small retail or e-commerce business. It turns imperfect order exports into repeatable, auditable datasets and business summaries. The focus is automation, reliable data processing, business rules, and backend-adjacent engineering—not machine learning.
+## 1. Project Positioning
 
-## What the pipeline does
+This repository is a small internal data-processing system that demonstrates Python automation, data quality engineering, and business-oriented transformation logic. It is designed around a single retail sales workflow and produces repeatable, auditable outputs from imperfect order exports.
 
-The pipeline runs six explicit stages:
+## 2. Business Problem
 
-1. **Ingest** a CSV export while preserving business identifiers.
-2. **Validate** the required schema before processing any records.
-3. **Clean** whitespace and inconsistent status casing, and coerce dates and numeric fields.
-4. **Quarantine** invalid records with one or more traceable rejection reasons.
-5. **Transform** accepted orders and calculate gross and recognized revenue.
-6. **Report** customer, product, category, and monthly summaries plus data-quality metrics.
+Small retail and e-commerce teams often receive order data as CSV exports. These files can contain duplicate identifiers, missing customer information, malformed dates, invalid quantities, negative prices, inconsistent status values, and untidy product names. Using that data directly can overstate revenue, distort customer and product rankings, and make operational reports difficult to trust.
 
-Structural failures such as a missing input file or required column stop the run. Row-level issues do not silently disappear: affected records are written to `rejected_orders.csv` with a `rejection_reasons` field.
+This pipeline applies explicit quality rules before calculating business metrics. Invalid rows remain traceable in a rejected-record dataset, while accepted rows feed standardized customer, product, category, and monthly reports.
 
-## Input contract
-
-| Field | Meaning | Rule |
-| --- | --- | --- |
-| `order_id` | Unique order identifier | Required and unique |
-| `order_date` | Order date | Must be parseable |
-| `customer_id` | Customer identifier | Required |
-| `product_id` | Product identifier | Required |
-| `product_name` | Display name | Required; whitespace is trimmed |
-| `category` | Product category | Required by the schema |
-| `quantity` | Units ordered | Must be greater than zero |
-| `unit_price` | Price per unit | Must be zero or greater |
-| `country` | Customer/order country | Required by the schema |
-| `status` | Order lifecycle state | `pending`, `completed`, `shipped`, or `cancelled` |
-
-The sample input intentionally contains duplicate orders, a duplicate row, a missing customer ID, an invalid date, zero and negative quantities, a negative price, inconsistent status casing, padded product names, and an unsupported status.
-
-## Business rules
-
-- Status values are trimmed and normalized to lowercase.
-- Product names and other text fields are trimmed.
-- The first occurrence of an `order_id` is retained when it passes all other rules; later occurrences are quarantined.
-- A rejected row may carry several semicolon-separated reasons.
-- `gross_revenue = quantity × unit_price` for every valid order.
-- `sales_revenue` equals gross revenue only when status is `completed` or `shipped`.
-- Pending and cancelled orders remain available for operational analysis but contribute zero recognized revenue.
-
-| Data quality issue | Processing rule |
-| --- | --- |
-| Duplicate `order_id` | Keep the first occurrence when otherwise valid; send later occurrences to rejected records |
-| Completely duplicate row | Keep the first occurrence; send later copies to rejected records and report the duplicate count |
-| Missing `customer_id` | Send the record to rejected records |
-| `quantity <= 0` | Send the record to rejected records |
-| Non-integer quantity | Send the record to rejected records |
-| `unit_price < 0` | Send the record to rejected records; zero is accepted |
-| Invalid order date | Send the record to rejected records |
-| Product-name whitespace | Trim leading and trailing whitespace automatically |
-| Inconsistent status casing | Normalize the status to lowercase |
-| Unknown status | Send the record to rejected records; strict mode also returns a data-quality failure |
-
-## Module responsibilities
-
-- `ingestion.py` handles file existence, empty input, CSV parsing, encoding errors, and DataFrame loading.
-- `validation.py` checks the schema, field types, identifiers, dates, quantities, prices, and statuses. It returns a `ValidationResult` containing record counts, issue counts, and row-level errors.
-- `cleaning.py` trims strings, normalizes statuses, converts dates and numbers, and separates accepted records from rejected records without silently discarding failures.
-- `transformation.py` calculates revenue and builds customer, product, category, and monthly summaries.
-- `reporting.py` writes the processed datasets, summaries, and pipeline metrics.
-- `pipeline.py` runs ingestion, validation, cleaning, transformation, and export in sequence.
-- `cli.py` exposes the pipeline as a repeatable command-line job.
-
-## Project structure
+## 3. Pipeline Overview
 
 ```text
-sales-data-pipeline/
-├── .github/workflows/ci.yml
-├── data/
-│   ├── raw/sales_orders.csv
-│   └── processed/.gitkeep
-├── reports/.gitkeep
-├── src/sales_pipeline/
-│   ├── __init__.py
-│   ├── cli.py
-│   ├── config.py
-│   ├── exceptions.py
-│   ├── ingestion.py
-│   ├── validation.py
-│   ├── cleaning.py
-│   ├── transformation.py
-│   ├── reporting.py
-│   └── pipeline.py
-├── tests/
-├── .gitignore
-├── LICENSE
-├── README.md
-└── pyproject.toml
+Raw CSV
+  ↓
+Schema and Row Validation
+  ↓
+Cleaning and Rejection
+  ↓
+Business Transformations
+  ↓
+CSV and JSON Reports
 ```
 
-## Run locally
+Structural problems, such as missing columns, stop the run. Row-level problems are collected in a `ValidationResult` and then isolated by the cleaning stage. The transformation stage only receives accepted records.
+
+## 4. Features
+
+- CSV ingestion with missing-file, empty-file, encoding, and parser error handling
+- Required-column and field-value validation
+- Multiple rejection reasons on a single record
+- String trimming and order-status normalization
+- Gross and recognized sales revenue calculations
+- Customer, product, category, and monthly aggregations
+- Operational logs for inputs, record counts, quality results, outputs, and final status
+- Strict mode for automated data-quality gates
+- Defined exit codes for quality, input, configuration, and export failures
+- Automated linting, formatting, tests, and coverage enforcement
+
+## 5. Architecture
+
+```text
+src/sales_pipeline/
+├── cli.py             Command parsing, logging setup, and exit codes
+├── config.py          Paths and business-rule configuration
+├── exceptions.py      Pipeline-specific exception hierarchy
+├── ingestion.py       CSV loading and input-file checks
+├── validation.py      Schema rules, row rules, and ValidationResult
+├── cleaning.py        Normalization and accepted/rejected separation
+├── transformation.py Revenue calculations and business summaries
+├── reporting.py       CSV and JSON exports
+└── pipeline.py        End-to-end stage orchestration
+```
+
+The package keeps input handling, rule evaluation, normalization, business logic, and file export separate. This makes each stage independently testable and keeps orchestration in one place.
+
+## 6. Data Validation Rules
+
+| Data issue | Processing rule |
+| --- | --- |
+| Duplicate `order_id` | Keep the first occurrence when otherwise valid; send later occurrences to `rejected_orders.csv` |
+| Completely duplicate row | Keep the first occurrence; reject later copies and report the duplicate count |
+| Missing `order_id` | Send the record to `rejected_orders.csv` |
+| Missing `customer_id` | Send the record to `rejected_orders.csv` |
+| Missing product ID, name, category, or country | Send the record to `rejected_orders.csv` |
+| Invalid order date | Send the record to `rejected_orders.csv` |
+| Non-integer quantity | Send the record to `rejected_orders.csv` |
+| `quantity <= 0` | Send the record to `rejected_orders.csv` |
+| Non-numeric unit price | Send the record to `rejected_orders.csv` |
+| `unit_price < 0` | Send the record to `rejected_orders.csv`; zero is accepted |
+| Product-name whitespace | Trim leading and trailing whitespace automatically |
+| Inconsistent status casing | Trim and normalize the value to lowercase |
+| Unknown status | Send the record to `rejected_orders.csv`; strict mode returns exit code `1` |
+
+A rejected row may contain several semicolon-separated reasons. Exceptions are never silently discarded.
+
+## 7. Input Schema
+
+| Field | Type after cleaning | Rule |
+| --- | --- | --- |
+| `order_id` | string | Required and unique |
+| `order_date` | date | Required and parseable |
+| `customer_id` | string | Required |
+| `product_id` | string | Required |
+| `product_name` | string | Required; surrounding whitespace is removed |
+| `category` | string | Required |
+| `quantity` | integer | Greater than zero |
+| `unit_price` | decimal | Zero or greater |
+| `country` | string | Required |
+| `status` | string | `pending`, `completed`, `shipped`, or `cancelled` |
+
+The committed sample file at `data/raw/sales_orders.csv` deliberately includes a small number of realistic quality problems so every rejection path can be inspected.
+
+## 8. Installation
 
 Python 3.10 or newer is required.
 
@@ -102,18 +103,28 @@ Python 3.10 or newer is required.
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
+```
+
+The editable development installation provides the `sales-pipeline` command and installs the test, coverage, lint, and formatting tools.
+
+## 9. CLI Usage
+
+Run the sample dataset:
+
+```bash
 sales-pipeline data/raw/sales_orders.csv --output-dir reports
 ```
 
-Custom paths can be supplied without changing source code:
+Run with a quality gate and explicit log level:
 
 ```bash
 sales-pipeline data/raw/sales_orders.csv \
   --output-dir reports \
+  --strict \
   --log-level INFO
 ```
 
-Add `--strict` to return a data-quality failure when any records are rejected. Audit files are still written before strict-mode status is evaluated.
+Strict mode writes the audit artifacts before evaluating the quality result.
 
 | Exit code | Meaning |
 | --- | --- |
@@ -122,33 +133,44 @@ Add `--strict` to return a data-quality failure when any records are rejected. A
 | `2` | Input, schema, or command configuration error |
 | `3` | Output export failure |
 
-The pipeline uses Python logging for operational output. Logs identify the input file, raw record count, duplicate count, rejected-record count, each output path, and final pipeline status. The complete metric set remains available in `pipeline_summary.json`.
+## 10. Output Files
 
-## Outputs
+All files are written beneath `--output-dir`.
 
-| Artifact | Purpose |
+| File | Contents |
 | --- | --- |
-| `cleaned_orders.csv` | Normalized accepted orders with gross and recognized revenue |
-| `rejected_orders.csv` | Quarantined records and rejection reasons |
-| `customer_summary.csv` | Orders, units, gross revenue, and recognized revenue by customer |
-| `product_summary.csv` | Orders, units, gross revenue, and recognized revenue by product |
-| `category_summary.csv` | Orders, units, gross revenue, and recognized revenue by category |
-| `monthly_summary.csv` | Orders, units, gross revenue, and recognized revenue by calendar month |
+| `cleaned_orders.csv` | Accepted orders with normalized fields, gross revenue, and recognized sales revenue |
+| `rejected_orders.csv` | Invalid records with semicolon-separated rejection reasons |
+| `customer_summary.csv` | Orders, units, gross revenue, and sales revenue by customer |
+| `product_summary.csv` | Orders, units, gross revenue, and sales revenue by product |
+| `category_summary.csv` | Orders, units, gross revenue, and sales revenue by category |
+| `monthly_summary.csv` | Orders, units, gross revenue, and sales revenue by month |
 | `pipeline_summary.json` | Data-quality counts and business metrics for the run |
 
-All artifacts are written beneath `--output-dir`. The JSON summary includes total, valid, and rejected order counts; gross and recognized revenue; average order value; unique customers; best-selling and highest-revenue products; highest-revenue customer; monthly revenue; order-status distribution; and validation issue counts.
+Generated outputs are ignored by version control and can be reproduced from the committed raw input.
 
-Generated outputs are ignored by Git so repeated local and CI runs do not create repository noise.
+## 11. Example Results
 
-## Tests and CI
+Running the pipeline against the sample file produces:
 
-```bash
-pytest --cov=sales_pipeline --cov-report=term-missing
-```
+| Metric | Result |
+| --- | ---: |
+| Total input records | 15 |
+| Valid orders | 7 |
+| Rejected records | 8 |
+| Gross revenue | 475.28 |
+| Recognized sales revenue | 337.28 |
+| Average recognized order value | 67.46 |
+| Unique customers | 5 |
+| Best-selling product | Notebook Set |
+| Highest-revenue product | USB-C Hub |
+| Highest-revenue customer | CUST-002 |
 
-Tests use `tmp_path` and fixtures, so they do not depend on the repository's real output directories. They cover missing and empty files, required columns, duplicate orders, invalid dates, missing customers, quantity and price boundaries, status normalization, revenue calculations, customer and product summaries, rejected records, the complete pipeline, and CLI exit codes.
+Recognized monthly revenue is 129.48 for January, 36.75 for February, and 171.05 for March 2026. The JSON report also records the order-status distribution and counts for every validation issue.
 
-GitHub Actions runs on Ubuntu with Python 3.10 and 3.12:
+## 12. Testing
+
+Tests use fixtures and pytest's `tmp_path`; they never depend on the repository's real output directories.
 
 ```bash
 ruff check src tests
@@ -156,11 +178,38 @@ ruff format --check src tests
 pytest --cov=sales_pipeline --cov-report=term-missing --cov-fail-under=85
 ```
 
-## Repository metadata
+The suite covers missing and empty files, header-only CSV files, missing columns, duplicate orders, invalid dates, missing customers, quantity and price boundaries, status normalization, revenue calculations, customer and product summaries, rejected records, export failures, complete pipeline runs, logging, and CLI exit codes.
 
-- **Repository name:** `sales-data-pipeline`
-- **GitHub description:** A tested Python pipeline for validating, cleaning, transforming, and reporting sales data.
+Continuous integration runs these checks on Ubuntu with Python 3.10 and 3.12.
 
-## License
+## 13. Technology
 
-MIT
+- Python 3.10+
+- pandas for tabular processing and aggregation
+- pytest for behavior and integration tests
+- pytest-cov and coverage.py for coverage enforcement
+- Ruff for linting and formatting
+- GitHub Actions for continuous integration
+- Standard-library `argparse`, `logging`, `json`, `pathlib`, and `dataclasses`
+
+## 14. Limitations
+
+- Input is limited to one CSV file per run.
+- Processing is in memory and is intended for small internal retail exports.
+- Revenue recognition is based only on order status and does not model refunds, taxes, discounts, currencies, or partial fulfillment.
+- Duplicate handling keeps the first occurrence by file order; it does not compare update timestamps.
+- Output replacement is file based and does not provide transactional rollback across all artifacts.
+
+## 15. Roadmap
+
+- Add configurable validation profiles for different sales-export formats.
+- Add atomic staging and replacement for the complete output set.
+- Add optional chunked ingestion for larger CSV files.
+- Add machine-readable run identifiers and timing metrics to operational logs.
+- Add reconciliation checks between accepted-order revenue and summary totals.
+
+The repository will remain focused on one sales-processing workflow. Unrelated datasets and analysis projects are intentionally kept separate.
+
+## 16. License
+
+This project is available under the MIT License. See `LICENSE` for the full terms.

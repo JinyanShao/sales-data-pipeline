@@ -36,3 +36,18 @@ def test_clean_orders_isolates_duplicate_rows_and_order_ids(valid_orders):
     assert len(result.rejected) == 2
     assert validation.issue_counts["duplicate_row"] == 2
     assert validation.issue_counts["duplicate_order_id"] == 2
+
+
+def test_invalid_first_row_does_not_block_later_valid_order_id(valid_orders):
+    invalid = valid_orders.iloc[[0]].copy()
+    invalid.loc[:, "quantity"] = 0
+    valid = valid_orders.iloc[[0]].copy()
+    data = pd.concat([invalid, valid], ignore_index=True)
+
+    validation = validate_orders(data)
+    result = clean_orders(data, validation)
+
+    assert len(result.accepted) == 1
+    assert len(result.rejected) == 1
+    assert "non_positive_quantity" in result.rejected.loc[0, "rejection_reasons"]
+    assert validation.issue_counts.get("duplicate_order_id", 0) == 0

@@ -62,22 +62,22 @@ Writes all CSV and JSON outputs to a staging directory, reconciles totals, then 
 
 ## Example run
 
-Install dependencies with the locked environment:
+Install the project and its development tools:
 
 ```bash
-uv sync --all-extras --locked
+python -m pip install -e ".[dev]"
 ```
 
 Run the sample pipeline:
 
 ```bash
-uv run sales-pipeline data/raw/sales_orders.csv --output-dir reports
+sales-pipeline data/raw/sales_orders.csv --output-dir reports
 ```
 
 Run with a stricter quality gate:
 
 ```bash
-uv run sales-pipeline data/raw/sales_orders.csv --output-dir reports --strict --max-rejection-rate 0.2
+sales-pipeline data/raw/sales_orders.csv --output-dir reports --strict
 ```
 
 ## Example output
@@ -152,9 +152,7 @@ Duplicate order handling is deliberately conservative: the first otherwise-valid
 ├── data/raw/
 ├── reports/
 ├── docs/
-├── scripts/
 ├── pyproject.toml
-├── uv.lock
 └── README.md
 ```
 
@@ -163,20 +161,20 @@ Duplicate order handling is deliberately conservative: the first otherwise-valid
 Run the test suite:
 
 ```bash
-uv run pytest --cov=sales_pipeline --cov-report=term-missing --cov-fail-under=85
+pytest --cov=sales_pipeline --cov-report=term-missing --cov-fail-under=85
 ```
 
 Run the same style checks used in CI:
 
 ```bash
-uv run ruff check src tests scripts
-uv run ruff format --check src tests scripts
-uv run python scripts/verify_demo.py
+ruff check src tests
+ruff format --check src tests
+sales-pipeline data/raw/sales_orders.csv --output-dir /tmp/sales-reports
 ```
 
 The tests cover ingestion errors, validation and rejection reasons, cleaning behavior, revenue transformation, reconciliation, reporting, CLI exit codes, and the end-to-end demo output.
 
-GitHub Actions installs dependencies from `uv.lock`, runs Ruff, runs pytest with coverage, and verifies the sample pipeline command.
+GitHub Actions installs the project with its development dependencies, runs Ruff and pytest with coverage, then runs the sample pipeline command.
 
 ## Design choices
 

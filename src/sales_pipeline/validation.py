@@ -58,7 +58,6 @@ def validate_orders(
     issue_masks: dict[str, pd.Series] = {
         "duplicate_row": frame.reset_index(drop=True).duplicated(keep="first"),
         "missing_order_id": data["order_id"].isna(),
-        "duplicate_order_id": data["order_id"].notna() & data["order_id"].duplicated(keep="first"),
         "invalid_order_date": dates.isna(),
         "missing_customer_id": data["customer_id"].isna(),
         "missing_product_id": data["product_id"].isna(),
@@ -71,6 +70,19 @@ def validate_orders(
         "negative_unit_price": prices.notna() & prices.lt(0),
         "unsupported_status": data["status"].isna() | ~data["status"].isin(supported_statuses),
     }
+
+    invalid_without_duplicate = pd.DataFrame(issue_masks).any(axis=1)
+    duplicate_order_id = pd.Series(False, index=data.index)
+    seen_valid_ids: set[str] = set()
+    for position, order_id in enumerate(data["order_id"]):
+        if pd.isna(order_id):
+            continue
+        normalized_id = str(order_id)
+        if normalized_id in seen_valid_ids:
+            duplicate_order_id.iloc[position] = True
+        elif not invalid_without_duplicate.iloc[position]:
+            seen_valid_ids.add(normalized_id)
+    issue_masks["duplicate_order_id"] = duplicate_order_id
 
     errors: list[list[str]] = [[] for _ in range(len(data))]
     for issue, mask in issue_masks.items():

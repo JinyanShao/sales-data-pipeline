@@ -19,6 +19,7 @@ class SalesSummaries:
     by_product: pd.DataFrame
     by_category: pd.DataFrame
     by_month: pd.DataFrame
+    revenue_statuses: frozenset[str] = REVENUE_STATUSES
 
 
 def transform_orders(
@@ -51,6 +52,7 @@ def transform_orders(
         by_product=product,
         by_category=category,
         by_month=month,
+        revenue_statuses=revenue_statuses,
     )
 
 

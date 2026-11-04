@@ -60,6 +60,11 @@ Builds customer, product, category, and monthly summaries from accepted rows onl
 
 Writes all CSV and JSON outputs to a staging directory, reconciles totals, then replaces the target report directory as a complete set.
 
+`average_order_value` is total recognized sales revenue divided by the number of
+valid orders whose status is configured to recognize revenue. It includes
+zero-price orders; by default, those statuses are `completed` and `shipped`.
+When there are no qualifying orders, the value is `0.0`.
+
 ## Example run
 
 Install the project and its development tools:

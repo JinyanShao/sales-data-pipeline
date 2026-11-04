@@ -19,6 +19,32 @@ def test_run_pipeline_end_to_end(tmp_path, valid_orders):
     assert json.loads(result.outputs["pipeline_summary"].read_text())["unique_customers"] == 2
 
 
+@pytest.mark.parametrize(
+    ("second_status", "expected_revenue", "expected_average"),
+    [("completed", 100.0, 50.0), ("shipped", 0.0, 0.0)],
+)
+def test_average_order_value_uses_configured_revenue_statuses(
+    tmp_path, valid_orders, second_status, expected_revenue, expected_average
+):
+    valid_orders.loc[:, "status"] = ["pending", second_status]
+    valid_orders.loc[:, "quantity"] = 1
+    valid_orders.loc[:, "unit_price"] = [0.0, 100.0]
+    source = tmp_path / "orders.csv"
+    valid_orders.to_csv(source, index=False)
+    config = PipelineConfig(
+        input_path=source,
+        output_dir=tmp_path / "reports",
+        revenue_statuses=frozenset({"pending", "completed"}),
+    )
+
+    result = run_pipeline(config)
+
+    assert result.report["total_sales_revenue"] == expected_revenue
+    assert result.report["average_order_value"] == expected_average
+    written_report = json.loads(result.outputs["pipeline_summary"].read_text())
+    assert written_report["average_order_value"] == expected_average
+
+
 def test_run_pipeline_logs_processing_counts_and_outputs(tmp_path, valid_orders, caplog):
     source = tmp_path / "orders.csv"
     valid_orders.to_csv(source, index=False)
@@ -47,6 +73,7 @@ def test_run_pipeline_exports_reports_when_every_record_is_rejected(tmp_path, va
     result = run_pipeline(PipelineConfig(input_path=source, output_dir=tmp_path / "reports"))
     assert result.report["valid_orders"] == 0
     assert result.report["rejected_records"] == 1
+    assert result.report["average_order_value"] == 0.0
     assert result.report["best_selling_product"] is None
     assert result.outputs["monthly_summary"].exists()
 

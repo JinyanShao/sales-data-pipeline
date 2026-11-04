@@ -42,6 +42,44 @@ def test_pipeline_summary_contains_quality_and_business_metrics(tmp_path, valid_
     assert report["order_status_distribution"] == {"completed": 1, "cancelled": 1}
 
 
+@pytest.mark.parametrize(
+    ("statuses", "expected_average"),
+    [
+        (["completed", "completed"], 50.0),
+        (["completed", "shipped"], 50.0),
+        (["completed", "cancelled"], 0.0),
+        (["pending", "cancelled"], 0.0),
+    ],
+)
+def test_average_order_value_includes_zero_price_qualifying_orders(
+    tmp_path, valid_orders, statuses, expected_average
+):
+    valid_orders.loc[:, "status"] = statuses
+    valid_orders.loc[:, "quantity"] = 1
+    valid_orders.loc[:, "unit_price"] = [0.0, 100.0]
+    validation = validate_orders(valid_orders)
+    summaries = transform_orders(clean_orders(valid_orders, validation).accepted)
+
+    report = build_report(tmp_path / "source.csv", validation, summaries)
+
+    assert report["valid_orders"] == 2
+    assert report["average_order_value"] == expected_average
+
+
+def test_pipeline_summary_all_zero_revenue_orders(tmp_path, valid_orders):
+    valid_orders.loc[:, "status"] = ["completed", "shipped"]
+    valid_orders.loc[:, "unit_price"] = 0.0
+    validation = validate_orders(valid_orders)
+    cleaning = clean_orders(valid_orders, validation)
+    summaries = transform_orders(cleaning.accepted)
+
+    report = build_report(tmp_path / "source.csv", validation, summaries)
+
+    assert report["valid_orders"] == 2
+    assert report["total_sales_revenue"] == 0.0
+    assert report["average_order_value"] == 0.0
+
+
 def test_write_outputs_creates_named_artifacts(tmp_path, valid_orders):
     validation = validate_orders(valid_orders)
     cleaning = clean_orders(valid_orders, validation)

@@ -32,7 +32,7 @@ def build_pipeline_summary(
 ) -> dict[str, Any]:
     """Build run metadata, data-quality rates, and business metrics."""
     orders = summaries.orders
-    sales_order_count = int(orders["sales_revenue_cents"].gt(0).sum())
+    sales_order_count = int(orders["status"].isin(summaries.revenue_statuses).sum())
     gross_revenue_cents = int(orders["gross_revenue_cents"].sum())
     sales_revenue_cents = int(orders["sales_revenue_cents"].sum())
     total_orders = validation.total_records
